@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Posts</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    .hero-section {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: white;
+      padding: 60px 0 40px;
+    }
+    .blog-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+      height: 100%;
+    }
+    .blog-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    .blog-card .card-img-top {
+      height: 200px;
+      object-fit: cover;
+    }
+    .card-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hero-section mb-5">
+    <div class="container text-center">
+      <h1 class="display-5 fw-bold mb-2">Blog Posts</h1>
+      <p class="text-white-50 mb-0">WordPress export — <span id="totalCount"></span></p>
+    </div>
+  </div>
+
+  <div class="container pb-5">
+
+    <!-- Search -->
+    <div class="row mb-4 align-items-center">
+      <div class="col-md-6 mb-3 mb-md-0">
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="text" id="searchInput" class="form-control" placeholder="Search posts...">
+        </div>
+      </div>
+      <div class="col-md-6 text-md-end text-muted small" id="postCount"></div>
+    </div>
+
+    <!-- File picker fallback (shown when fetch fails — e.g. file:// protocol) -->
+    <div id="filePicker" class="alert alert-info d-none mb-4">
+      <i class="bi bi-info-circle me-2"></i>
+      Could not auto-load the JSON (browser blocked local file access).
+      <label class="btn btn-sm btn-outline-primary ms-2">
+        Pick JSON file
+        <input type="file" id="jsonFile" accept=".json" class="d-none">
+      </label>
+    </div>
+
+    <!-- Loading spinner -->
+    <div id="loadingSpinner" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="text-muted mt-3">Loading posts…</p>
+    </div>
+
+    <!-- Blog grid -->
+    <div id="blogGrid" class="row gy-4"></div>
+
+    <!-- Pagination -->
+    <div id="pagination" class="d-flex flex-wrap justify-content-center gap-2 mt-5"></div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const PER_PAGE = 9;
+    let allPosts = [];
+    let filtered = [];
+    let currentPage = 1;
+
+    // Strip Gutenberg block comment markers, keep the inner HTML
+    function cleanContent(html) {
+      return (html || '').replace(/<!--\s*\/?wp:[^>]*-->/g, '').trim();
+    }
+
+    function excerpt(post) {
+      if (post.post_excerpt && post.post_excerpt.trim()) {
+        return post.post_excerpt.trim();
+      }
+      const div = document.createElement('div');
+      div.innerHTML = cleanContent(post.post_content);
+      return (div.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('blogGrid');
+      const start = (currentPage - 1) * PER_PAGE;
+      const page = filtered.slice(start, start + PER_PAGE);
+
+      if (page.length === 0) {
+        grid.innerHTML = `
+          <div class="col-12 text-center py-5 text-muted">
+            <i class="bi bi-journal-x fs-1 d-block mb-3"></i>
+            No posts found.
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = page.map(post => `
+        <div class="col-lg-4 col-md-6 d-flex">
+          <div class="card blog-card border-0 shadow-sm w-100">
+            <img
+              src="${post._imageUrl || ''}"
+              class="card-img-top${post._imageUrl ? '' : ' d-none'}"
+              alt="${post.post_title}"
+              onerror="this.classList.add('d-none')">
+            <div class="card-body d-flex flex-column">
+              <p class="text-muted small mb-2">
+                <i class="bi bi-calendar3 me-1"></i>${formatDate(post.post_date)}
+              </p>
+              <h5 class="card-title fw-bold">${post.post_title}</h5>
+              <p class="card-text text-muted small flex-grow-1">${excerpt(post)}</p>
+              <a href="blog.html?id=${post.ID}" class="btn btn-primary btn-sm mt-3">
+                Read More <i class="bi bi-arrow-right ms-1"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPagination() {
+      const total = Math.ceil(filtered.length / PER_PAGE);
+      const pag = document.getElementById('pagination');
+      if (total <= 1) { pag.innerHTML = ''; return; }
+
+      pag.innerHTML = Array.from({ length: total }, (_, i) => i + 1).map(i => `
+        <button class="btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-secondary'}"
+                onclick="goPage(${i})">${i}</button>
+      `).join('');
+    }
+
+    function goPage(p) {
+      currentPage = p;
+      renderGrid();
+      renderPagination();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function applySearch() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      filtered = q
+        ? allPosts.filter(p =>
+            p.post_title.toLowerCase().includes(q) ||
+            excerpt(p).toLowerCase().includes(q)
+          )
+        : [...allPosts];
+      currentPage = 1;
+      document.getElementById('postCount').textContent = `${filtered.length} of ${allPosts.length} posts`;
+      renderGrid();
+      renderPagination();
+    }
+
+    function processData(data) {
+      document.getElementById('loadingSpinner').classList.add('d-none');
+
+      const postsTable = data.find(t => t.type === 'table' && t.name === 'wpxr_posts');
+      if (!postsTable) {
+        alert('wpxr_posts table not found in the JSON file.');
+        return;
+      }
+
+      // Map attachment ID → image URL (guid)
+      const attachments = {};
+      postsTable.data
+        .filter(p => p.post_type === 'attachment')
+        .forEach(p => { attachments[p.ID] = p.guid; });
+
+      // Map post_id → thumbnail attachment ID
+      const thumbMap = {};
+      const metaTable = data.find(t => t.type === 'table' && t.name === 'wpxr_postmeta');
+      if (metaTable) {
+        metaTable.data
+          .filter(m => m.meta_key === '_thumbnail_id')
+          .forEach(m => { thumbMap[m.post_id] = m.meta_value; });
+      }
+
+      // Published posts, newest first
+      allPosts = postsTable.data
+        .filter(p => p.post_type === 'post' && p.post_status === 'publish')
+        .sort((a, b) => new Date(b.post_date) - new Date(a.post_date));
+
+      allPosts.forEach(p => {
+        const thumbId = thumbMap[p.ID];
+        p._imageUrl = thumbId ? (attachments[thumbId] || null) : null;
+      });
+
+      filtered = [...allPosts];
+      document.getElementById('totalCount').textContent = `${allPosts.length} published posts`;
+      document.getElementById('postCount').textContent = `${allPosts.length} posts`;
+      renderGrid();
+      renderPagination();
+    }
+
+    // Try auto-loading; fall back to file picker
+    fetch('./fvxhrvjn_wg.json')
+      .then(r => r.json())
+      .then(processData)
+      .catch(() => {
+        document.getElementById('loadingSpinner').classList.add('d-none');
+        document.getElementById('filePicker').classList.remove('d-none');
+      });
+
+    document.getElementById('jsonFile').addEventListener('change', function () {
+      document.getElementById('filePicker').classList.add('d-none');
+      document.getElementById('loadingSpinner').classList.remove('d-none');
+      const reader = new FileReader();
+      reader.onload = e => processData(JSON.parse(e.target.result));
+      reader.readAsText(this.files[0]);
+    });
+
+    document.getElementById('searchInput').addEventListener('input', applySearch);
+  </script>
+</body>
+</html>

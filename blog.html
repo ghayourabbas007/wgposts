@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Post</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    .hero-section {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: white;
+      padding: 50px 0 40px;
+    }
+    .article-img {
+      width: 100%;
+      max-height: 420px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+    .article-content {
+      font-size: 1.05rem;
+      line-height: 1.85;
+      color: #2d2d2d;
+    }
+    .article-content h1,
+    .article-content h2,
+    .article-content h3,
+    .article-content h4 {
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      font-weight: 700;
+    }
+    .article-content p { margin-bottom: 1.1rem; }
+    .article-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0; }
+    .article-content ul,
+    .article-content ol { padding-left: 1.75rem; margin-bottom: 1rem; }
+    .article-content li { margin-bottom: 0.4rem; }
+    .article-content blockquote {
+      border-left: 4px solid #0d6efd;
+      padding: 0.75rem 1.25rem;
+      background: #f0f4ff;
+      border-radius: 0 8px 8px 0;
+      margin: 1.5rem 0;
+      font-style: italic;
+    }
+    .article-content a { color: #0d6efd; }
+    .article-content figure { margin: 1.5rem 0; }
+    .article-content .wp-block-image img { max-width: 100%; }
+    .article-content pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .meta-bar {
+      background: white;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      border: 1px solid #e9ecef;
+      margin-bottom: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hero-section mb-5">
+    <div class="container">
+      <a href="blogs.html" class="btn btn-outline-light btn-sm mb-4">
+        <i class="bi bi-arrow-left me-1"></i> All Posts
+      </a>
+      <h1 class="display-6 fw-bold mb-0" id="postTitle">Loading…</h1>
+    </div>
+  </div>
+
+  <div class="container pb-5">
+
+    <!-- File picker fallback -->
+    <div id="filePicker" class="alert alert-info d-none mb-4">
+      <i class="bi bi-info-circle me-2"></i>
+      Could not auto-load the JSON (browser blocked local file access).
+      <label class="btn btn-sm btn-outline-primary ms-2">
+        Pick JSON file
+        <input type="file" id="jsonFile" accept=".json" class="d-none">
+      </label>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingSpinner" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="text-muted mt-3">Loading post…</p>
+    </div>
+
+    <!-- Article -->
+    <div id="article" class="d-none">
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+          <img id="postImage" src="" alt="" class="article-img d-none"
+               onerror="this.classList.add('d-none')">
+
+          <div class="meta-bar d-flex flex-wrap gap-4 text-muted small">
+            <span id="postDate"><i class="bi bi-calendar3 me-1"></i></span>
+            <span id="postSlug"><i class="bi bi-link-45deg me-1"></i></span>
+          </div>
+
+          <div id="postContent" class="article-content"></div>
+
+          <hr class="my-5">
+          <a href="blogs.html" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i> Back to all posts
+          </a>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Not found -->
+    <div id="notFound" class="d-none text-center py-5">
+      <i class="bi bi-exclamation-triangle fs-1 text-warning d-block mb-3"></i>
+      <h4 class="text-muted">Post not found</h4>
+      <a href="blogs.html" class="btn btn-outline-primary mt-3">Back to Posts</a>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const postId = params.get('id');
+
+    function cleanContent(html) {
+      return (html || '').replace(/<!--\s*\/?wp:[^>]*-->/g, '').trim();
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      });
+    }
+
+    function showPost(post, imageUrl) {
+      document.title = post.post_title;
+      document.getElementById('postTitle').textContent = post.post_title;
+      document.getElementById('postDate').innerHTML =
+        `<i class="bi bi-calendar3 me-1"></i>${formatDate(post.post_date)}`;
+      document.getElementById('postSlug').innerHTML =
+        `<i class="bi bi-link-45deg me-1"></i>${post.post_name}`;
+
+      if (imageUrl) {
+        const img = document.getElementById('postImage');
+        img.src = imageUrl;
+        img.alt = post.post_title;
+        img.classList.remove('d-none');
+      }
+
+      document.getElementById('postContent').innerHTML = cleanContent(post.post_content);
+
+      document.getElementById('loadingSpinner').classList.add('d-none');
+      document.getElementById('article').classList.remove('d-none');
+    }
+
+    function showNotFound() {
+      document.getElementById('loadingSpinner').classList.add('d-none');
+      document.getElementById('notFound').classList.remove('d-none');
+    }
+
+    function processData(data) {
+      if (!postId) { showNotFound(); return; }
+
+      const postsTable = data.find(t => t.type === 'table' && t.name === 'wpxr_posts');
+      if (!postsTable) { showNotFound(); return; }
+
+      const post = postsTable.data.find(p => String(p.ID) === String(postId));
+      if (!post) { showNotFound(); return; }
+
+      // Resolve featured image
+      const attachments = {};
+      postsTable.data
+        .filter(p => p.post_type === 'attachment')
+        .forEach(p => { attachments[p.ID] = p.guid; });
+
+      let imageUrl = null;
+      const metaTable = data.find(t => t.type === 'table' && t.name === 'wpxr_postmeta');
+      if (metaTable) {
+        const thumb = metaTable.data.find(
+          m => m.meta_key === '_thumbnail_id' && String(m.post_id) === String(postId)
+        );
+        if (thumb) imageUrl = attachments[thumb.meta_value] || null;
+      }
+
+      showPost(post, imageUrl);
+    }
+
+    fetch('./fvxhrvjn_wg.json')
+      .then(r => r.json())
+      .then(processData)
+      .catch(() => {
+        document.getElementById('loadingSpinner').classList.add('d-none');
+        document.getElementById('filePicker').classList.remove('d-none');
+      });
+
+    document.getElementById('jsonFile').addEventListener('change', function () {
+      document.getElementById('filePicker').classList.add('d-none');
+      document.getElementById('loadingSpinner').classList.remove('d-none');
+      const reader = new FileReader();
+      reader.onload = e => processData(JSON.parse(e.target.result));
+      reader.readAsText(this.files[0]);
+    });
+  </script>
+</body>
+</html>
